@@ -8,17 +8,19 @@ class FirstPage extends StatefulWidget {
   const FirstPage({super.key});
 
   @override
+
+  // ignore: library_private_types_in_public_api
   _FirstPageState createState() => _FirstPageState();
 }
 
 class _FirstPageState extends State<FirstPage>
     with SingleTickerProviderStateMixin {
   final List<String> imagePaths = [
-    'assets/images/page1.jpg',
-    'assets/images/page2.jpg',
-    'assets/images/page3.jpg',
-    'assets/images/page4.jpg',
-    'assets/images/page5.png',
+    'assets/images/pages/page1.jpg',
+    'assets/images/pages/page2.jpg',
+    'assets/images/pages/page3.jpg',
+    'assets/images/pages/page4.jpg',
+    'assets/images/pages/page5.png',
   ];
 
   int _currentIndex = 0;
@@ -96,7 +98,7 @@ class _FirstPageState extends State<FirstPage>
                       ),
                       GestureDetector(
                         onTap: () {
-                          Get.toNamed("/loginn");
+                          Get.toNamed("/login");
                           Get.snackbar(
                             "HELLOOO!!!",
                             "Welcome back to My Spa!!",

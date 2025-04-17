@@ -5,7 +5,7 @@ import 'package:my_spa/view/widgets/my_button.dart';
 import 'package:my_spa/view/widgets/my_text_field.dart';
 import 'package:animated_background/animated_background.dart';
 
-SignupController signupController = SignupController();
+final SignupController signupController = Get.put(SignupController());
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -18,6 +18,12 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   late TextEditingController usernameController;
   late TextEditingController emailController;
   late TextEditingController passwordController;
+  late TextEditingController confirmPasswordController;
+
+  // Add focus nodes for form traversal
+  late FocusNode emailFocus;
+  late FocusNode passwordFocus;
+  late FocusNode confirmPasswordFocus;
 
   @override
   void initState() {
@@ -25,6 +31,12 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     usernameController = TextEditingController();
     emailController = TextEditingController();
     passwordController = TextEditingController();
+    confirmPasswordController = TextEditingController();
+
+    // Initialize focus nodes
+    emailFocus = FocusNode();
+    passwordFocus = FocusNode();
+    confirmPasswordFocus = FocusNode();
   }
 
   @override
@@ -32,6 +44,13 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     usernameController.dispose();
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
+
+    // Dispose focus nodes
+    emailFocus.dispose();
+    passwordFocus.dispose();
+    confirmPasswordFocus.dispose();
+
     super.dispose();
   }
 
@@ -60,48 +79,70 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                   const SizedBox(height: 16),
                   const Text(
                     'Sign up to get started',
-                    style: TextStyle(
-                      color: Colors.white70,
-                    ),
+                    style: TextStyle(color: Colors.white70),
                   ),
                   const SizedBox(height: 40),
                   textField(
                     hint: "Username",
                     icon: Icons.person,
                     controller: usernameController,
+                    onSubmitted: (_) => emailFocus.requestFocus(),
                   ),
                   const SizedBox(height: 16),
                   textField(
                     hint: "Email",
                     icon: Icons.email,
                     controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    focusNode: emailFocus,
+                    onSubmitted: (_) => passwordFocus.requestFocus(),
                   ),
                   const SizedBox(height: 16),
                   textField(
-                    hint: "Enter Password",
+                    hint: "Password",
                     icon: Icons.lock,
                     controller: passwordController,
                     obscureText: true,
                     isPassword: true,
+                    focusNode: passwordFocus,
+                    onSubmitted: (_) => confirmPasswordFocus.requestFocus(),
                   ),
                   const SizedBox(height: 16),
                   textField(
                     hint: "Confirm Password",
                     icon: Icons.lock,
-                    controller: passwordController,
+                    controller: confirmPasswordController,
                     obscureText: true,
                     isPassword: true,
+                    focusNode: confirmPasswordFocus,
                   ),
-                  const SizedBox(height: 32),
-                  myButton(
-                    onPressed: () {
-                      Get.toNamed("/home");
-                      signupController
-                          .setErrorMessage('Cannot continue to signup!!');
-                    },
-                    label: "Sign Up",
-                    color: Colors.yellow,
-                  ),
+                  const SizedBox(height: 16),
+                  Obx(() => signupController.errorMessage.value != ''
+                      ? Text(
+                          signupController.errorMessage.value,
+                          style: const TextStyle(color: Colors.red),
+                        )
+                      : const SizedBox()),
+                  const SizedBox(height: 16),
+                  Obx(() => signupController.isLoading.value
+                      ? const CircularProgressIndicator()
+                      : myButton(
+                          onPressed: () {
+                            if (passwordController.text !=
+                                confirmPasswordController.text) {
+                              signupController.errorMessage.value =
+                                  "Passwords do not match!";
+                            } else {
+                              signupController.signupUser(
+                                usernameController.text.trim(),
+                                emailController.text.trim(),
+                                passwordController.text.trim(),
+                              );
+                            }
+                          },
+                          label: "Sign Up",
+                          color: Colors.yellow,
+                        )),
                   const SizedBox(height: 16),
                   GestureDetector(
                     onTap: () {

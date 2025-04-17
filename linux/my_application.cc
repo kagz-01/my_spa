@@ -83,10 +83,9 @@ static gboolean my_application_local_command_line(GApplication* application, gch
 
 // Implements GApplication::startup.
 static void my_application_startup(GApplication* application) {
-  //MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application startup.
-
+  // Disable AT-SPI bus connection to prevent accessibility warnings
+  g_setenv("NO_AT_BRIDGE", "1", TRUE);
+  
   G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
 }
 

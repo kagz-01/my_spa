@@ -10,6 +10,9 @@ Widget textField({
   Color fillColor = Colors.white, // Default background color
   Color borderColor = Colors.grey, // Default border color
   double borderRadius = 12.0, // Default border radius
+  Function(String)? validator, // Added validation support
+  Function(String)? onSubmitted, // Added submission handler
+  FocusNode? focusNode, // Added focus node support
 }) {
   return StatefulBuilder(
     builder: (context, setState) {
@@ -17,6 +20,8 @@ Widget textField({
         controller: controller,
         obscureText: obscureText, // Hide text for passwords
         keyboardType: keyboardType,
+        onSubmitted: onSubmitted, // Handle form submission
+        focusNode: focusNode, // Handle focus management
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: Colors.grey[600]), // Hint text color

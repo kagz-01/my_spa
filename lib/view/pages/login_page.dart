@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:my_spa/controller/login_controller.dart';
 import 'package:my_spa/view/widgets/my_button.dart';
 import 'package:my_spa/view/widgets/my_text_field.dart';
 import 'package:animated_background/animated_background.dart';
 
-var store = GetStorage();
-LoginController loginController = LoginController();
+LoginController loginController = Get.put(LoginController());
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -18,23 +16,19 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
-  late TextEditingController usernameController;
+  late TextEditingController emailController;
   late TextEditingController passwordController;
 
   @override
   void initState() {
     super.initState();
-    usernameController = TextEditingController();
+    emailController = TextEditingController();
     passwordController = TextEditingController();
-
-    // Load stored username
-    String username = store.read("username") ?? "";
-    usernameController.text = username;
   }
 
   @override
   void dispose() {
-    usernameController.dispose();
+    emailController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -54,25 +48,32 @@ class _LoginPageState extends State<LoginPage>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Hello, Welcome USER!!!',
+                    'Welcome Back',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Login to continue',
+                    'Login to your account',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: Colors.white70,
                     ),
                   ),
                   const SizedBox(height: 40),
                   textField(
-                    hint: "Username",
-                    icon: Icons.person,
-                    controller: usernameController,
+                    hint: "Email",
+                    icon: Icons.email,
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    onSubmitted: (_) => passwordController.text.isNotEmpty
+                        ? loginController.loginUser(
+                            emailController.text.trim(),
+                            passwordController.text.trim(),
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   textField(
@@ -81,53 +82,44 @@ class _LoginPageState extends State<LoginPage>
                     controller: passwordController,
                     obscureText: true,
                     isPassword: true,
+                    onSubmitted: (_) => loginController.loginUser(
+                      emailController.text.trim(),
+                      passwordController.text.trim(),
+                    ),
                   ),
-                  const SizedBox(height: 32),
-                  myButton(
-                    onPressed: () {
-                      Get.toNamed("/home");
+                  const SizedBox(height: 24),
+                  Obx(() => loginController.errorMessage.value != ''
+                      ? Text(
+                          loginController.errorMessage.value,
+                          style: const TextStyle(color: Colors.red),
+                        )
+                      : const SizedBox()),
+                  const SizedBox(height: 16),
+                  Obx(() => loginController.isLoading.value
+                      ? const CircularProgressIndicator()
+                      : myButton(
+                          onPressed: () {
+                            loginController.loginUser(
+                              emailController.text.trim(),
+                              passwordController.text.trim(),
+                            );
+                          },
+                          label: "Login",
+                          color: Colors.yellow,
+                        )),
+                  const SizedBox(height: 16),
+                  GestureDetector(
+                    onTap: () {
+                      Get.toNamed("/signup");
                     },
-                    label: "Continue",
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 20),
-                  myButton(
-                    onPressed: () {
-                      Get.toNamed("/Signup");
-                    },
-                    label: "Sign Up",
-                    color: Colors.yellow,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Checkbox(
-                        value: true,
-                        onChanged: (val) {
-                          // Handle remember me logic
-                        },
+                    child: const Text(
+                      "Don't have an account? Sign up",
+                      style: TextStyle(
+                        color: Colors.blueAccent,
+                        decoration: TextDecoration.underline,
                       ),
-                      const Text("Remember me",
-                          style: TextStyle(color: Colors.white)),
-                      const Spacer(),
-                      GestureDetector(
-                        child: const Text(
-                          "Forgot Password?",
-                          style: TextStyle(
-                            color: Colors.blueAccent,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                        onTap: () {
-                          print("password recovery");
-                        },
-                      ),
-                    ],
+                    ),
                   ),
-                  Obx(() => Text(
-                        loginController.error_message.value,
-                        style: TextStyle(color: Colors.red),
-                      )),
                 ],
               ),
             ),

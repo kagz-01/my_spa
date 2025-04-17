@@ -1,14 +1,16 @@
 import 'package:get/get.dart';
+import 'package:my_spa/view/pages/booking_page.dart';
+import 'package:my_spa/view/pages/category_page.dart';
+import 'package:my_spa/view/pages/category_detail_page.dart';
 import 'package:my_spa/view/pages/dash.dart';
 import 'package:my_spa/view/pages/first_page.dart';
 import 'package:my_spa/view/pages/home_page.dart';
+import 'package:my_spa/view/pages/notification_page.dart';
+import 'package:my_spa/view/pages/setting_page.dart';
+import 'package:my_spa/view/pages/welcome_page.dart';
 import 'package:my_spa/view/pages/login_page.dart';
-import 'package:my_spa/view/pages/products_list.dart';
-import 'package:my_spa/view/pages/products_page.dart';
-import 'package:my_spa/view/pages/profile_page.dart';
-import 'package:my_spa/view/pages/services_list.dart';
-import 'package:my_spa/view/pages/services_page.dart';
 import 'package:my_spa/view/pages/signup_page.dart';
+import 'package:my_spa/view/pages/share_photo_page.dart';
 
 List<GetPage> myroutes = [
   GetPage(name: "/", page: () => FirstPage()),
@@ -16,9 +18,11 @@ List<GetPage> myroutes = [
   GetPage(name: "/signup", page: () => const Signup()),
   GetPage(name: "/dash", page: () => const Dash()),
   GetPage(name: "/home", page: () => const HomePage()),
-  GetPage(name: "/servicesList", page: () => ServiceDetailsPage()),
-  GetPage(name: "/services", page: () => const ServicesPage()),
-  GetPage(name: "/productsList", page: () => ProductDetailsPage()),
-  GetPage(name: "/products", page: () => const ProductsPage()),
-  GetPage(name: "/profile", page: () => const ProfilePage()),
+  GetPage(name: "/notification", page: () => const NotificationPage()),
+  GetPage(name: "/welcome", page: () => const WelcomePage()),
+  GetPage(name: "/category", page: () => CategoryPage()),
+  GetPage(name: "/category-detail", page: () => const CategoryDetailPage()),
+  GetPage(name: "/settings", page: () => SettingsPage()),
+  GetPage(name: "/bookings", page: () => const BookingPage()),
+  GetPage(name: "/share_photo", page: () => const SharePhotoPage()),
 ];
