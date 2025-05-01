@@ -8,7 +8,7 @@ import '../widgets/my_text_field.dart';
 import 'package:my_spa/services/api_service.dart';
 
 class SharePhotoPage extends StatefulWidget {
-  const SharePhotoPage({Key? key}) : super(key: key);
+  const SharePhotoPage({super.key});
 
   @override
   State<SharePhotoPage> createState() => _SharePhotoPageState();
@@ -88,25 +88,23 @@ class _SharePhotoPageState extends State<SharePhotoPage> {
       return;
     }
 
-    // Format the date to display
-    String formattedDate =
-        DateFormat('MMM d, yyyy · h:mm a').format(_currentDate);
-
     try {
       // Set uploading state
       setState(() {
         _isUploading = true;
       });
 
-      // Create photo data to pass to API
+      // Get the authenticated user ID
+      int userId = _apiService.getUserIdForApi();
+
+      // Create photo data to pass to API, matching the exact field names expected by the backend
       final photoData = {
+        'user_id': userId,
         'username': _usernameController.text,
         'caption': _captionController.text,
         'rating': _rating,
-        'likes': 0,
-        'timeAgo': 'Just now',
-        'date': formattedDate,
-        'image': _selectedImage!.path, // Local file path
+        'image_name': _selectedImage!.path.split('/').last, // Just the filename
+        'image': _selectedImage!.path, // Full path for local display
       };
 
       // Send data to server

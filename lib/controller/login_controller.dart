@@ -1,6 +1,8 @@
 import 'package:get/get.dart';
 import 'package:my_spa/services/api_service.dart';
 import 'package:my_spa/controller/user_profile_controller.dart';
+import 'package:my_spa/services/user_service.dart';
+import 'dart:developer';
 
 class LoginController extends GetxController {
   // API service instance
@@ -8,6 +10,8 @@ class LoginController extends GetxController {
   // User profile controller for managing user data
   final UserProfileController _profileController =
       Get.find<UserProfileController>();
+  // User service for authentication
+  final UserService _userService = UserService();
 
   var isLoading = false.obs;
   var errorMessage = ''.obs;
@@ -23,7 +27,20 @@ class LoginController extends GetxController {
         // Save user data to profile controller
         await _profileController.saveLoginData(data["data"]);
 
-        // Navigate to dashboard
+        // IMPORTANT: Use user_id instead of id from the response
+        final userId = data["data"]["user_id"] is String
+            ? int.tryParse(data["data"]["user_id"]) ?? 0
+            : data["data"]["user_id"] ?? 0;
+
+        await _userService.saveUserData(
+          userId: userId,
+          username: data["data"]["username"] ?? "",
+          email: data["data"]["email"] ?? "",
+        );
+
+        // Always navigate to welcome screen first, then to dashboard
+        // This removes the previous login history check
+        log('Always going to welcome page first');
         Get.offAllNamed('/welcome');
       } else {
         errorMessage.value = data["message"] ?? "Invalid email or password";

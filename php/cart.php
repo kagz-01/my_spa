@@ -52,61 +52,72 @@ try {
         if ($data && isset($data['user_id']) && isset($data['product_name']) && 
             isset($data['price']) && isset($data['quantity'])) {
             
-            // Sanitize inputs
+            // Sanitize user_id
             $user_id = intval($data['user_id']);
-            $product_name = $con->real_escape_string($data['product_name']);
-            $product_category = isset($data['product_category']) ? 
-                $con->real_escape_string($data['product_category']) : 'Spa Product';
-            $quantity = intval($data['quantity']);
-            $price = floatval($data['price']);
-            $image_path = isset($data['image_path']) ? $con->real_escape_string($data['image_path']) : null;
             
-            // Check if the product is already in the cart for this user
-            $check_query = "SELECT * FROM cart_items WHERE user_id = $user_id AND product_name = '$product_name'";
-            $result = $con->query($check_query);
+            // Verify user exists before proceeding
+            $user_check_query = "SELECT user_id FROM users WHERE user_id = $user_id LIMIT 1";
+            $user_result = $con->query($user_check_query);
             
-            if ($result && $result->num_rows > 0) {
-                // Product already in cart, update quantity
-                $item = $result->fetch_assoc();
-                $new_quantity = $item['quantity'] + $quantity;
+            if ($user_result && $user_result->num_rows > 0) {
+                // User exists, proceed with cart operations
+                $product_name = $con->real_escape_string($data['product_name']);
+                $product_category = isset($data['product_category']) ? 
+                    $con->real_escape_string($data['product_category']) : 'Spa Product';
+                $quantity = intval($data['quantity']);
+                $price = floatval($data['price']);
+                $image_path = isset($data['image_path']) ? $con->real_escape_string($data['image_path']) : null;
                 
-                $update_query = "UPDATE cart_items SET quantity = $new_quantity, updated_at = NOW() WHERE id = {$item['id']}";
+                // Check if the product is already in the cart for this user
+                $check_query = "SELECT * FROM cart_items WHERE user_id = $user_id AND product_name = '$product_name'";
+                $result = $con->query($check_query);
                 
-                if ($con->query($update_query)) {
-                    $response["success"] = true;
-                    $response["message"] = "Cart updated successfully";
-                    $response["data"] = array(
-                        "id" => $item['id'],
-                        "user_id" => $user_id,
-                        "product_name" => $product_name,
-                        "quantity" => $new_quantity,
-                        "price" => $price
-                    );
+                if ($result && $result->num_rows > 0) {
+                    // Product already in cart, update quantity
+                    $item = $result->fetch_assoc();
+                    $new_quantity = $item['quantity'] + $quantity;
+                    
+                    $update_query = "UPDATE cart_items SET quantity = $new_quantity, updated_at = NOW() WHERE id = {$item['id']}";
+                    
+                    if ($con->query($update_query)) {
+                        $response["success"] = true;
+                        $response["message"] = "Cart updated successfully";
+                        $response["data"] = array(
+                            "id" => $item['id'],
+                            "user_id" => $user_id,
+                            "product_name" => $product_name,
+                            "quantity" => $new_quantity,
+                            "price" => $price
+                        );
+                    } else {
+                        $response["message"] = "Error updating cart: " . $con->error;
+                    }
                 } else {
-                    $response["message"] = "Error updating cart: " . $con->error;
+                    // Product not in cart, add new item
+                    $insert_query = "INSERT INTO cart_items (user_id, product_name, product_category, quantity, price, image_path) 
+                                  VALUES ($user_id, '$product_name', '$product_category', $quantity, $price, '$image_path')";
+                    
+                    if ($con->query($insert_query)) {
+                        $cart_item_id = $con->insert_id;
+                        $response["success"] = true;
+                        $response["message"] = "Item added to cart successfully";
+                        $response["data"] = array(
+                            "id" => $cart_item_id,
+                            "user_id" => $user_id,
+                            "product_name" => $product_name,
+                            "product_category" => $product_category,
+                            "quantity" => $quantity,
+                            "price" => $price,
+                            "image_path" => $image_path
+                        );
+                    } else {
+                        $response["message"] = "Database error: " . $con->error;
+                        $response["debug"][] = "Query failed: " . $con->error;
+                    }
                 }
             } else {
-                // Product not in cart, add new item
-                $insert_query = "INSERT INTO cart_items (user_id, product_name, product_category, quantity, price, image_path) 
-                              VALUES ($user_id, '$product_name', '$product_category', $quantity, $price, '$image_path')";
-                
-                if ($con->query($insert_query)) {
-                    $cart_item_id = $con->insert_id;
-                    $response["success"] = true;
-                    $response["message"] = "Item added to cart successfully";
-                    $response["data"] = array(
-                        "id" => $cart_item_id,
-                        "user_id" => $user_id,
-                        "product_name" => $product_name,
-                        "product_category" => $product_category,
-                        "quantity" => $quantity,
-                        "price" => $price,
-                        "image_path" => $image_path
-                    );
-                } else {
-                    $response["message"] = "Database error: " . $con->error;
-                    $response["debug"][] = "Query failed: " . $con->error;
-                }
+                $response["message"] = "User ID not found in the database";
+                $response["debug"][] = "Invalid user_id: $user_id";
             }
         } else {
             $response["message"] = "Missing required fields";
@@ -119,28 +130,42 @@ try {
         $user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : null;
         
         if ($user_id) {
-            // Get cart items for specific user
-            $query = "SELECT * FROM cart_items WHERE user_id = $user_id";
-            $result = $con->query($query);
+            // First check if the user exists
+            $user_check_query = "SELECT user_id FROM users WHERE user_id = $user_id LIMIT 1";
+            $user_result = $con->query($user_check_query);
             
-            if ($result) {
-                $items = [];
-                $total_amount = 0;
+            if ($user_result && $user_result->num_rows > 0) {
+                // User exists, proceed to get cart items
+                $query = "SELECT * FROM cart_items WHERE user_id = $user_id";
+                $result = $con->query($query);
                 
-                while ($row = $result->fetch_assoc()) {
-                    $items[] = $row;
-                    $total_amount += ($row['price'] * $row['quantity']);
+                if ($result) {
+                    $items = [];
+                    $total_amount = 0;
+                    
+                    while ($row = $result->fetch_assoc()) {
+                        $items[] = $row;
+                        $total_amount += ($row['price'] * $row['quantity']);
+                    }
+                    
+                    $response["success"] = true;
+                    $response["message"] = "Cart items fetched successfully";
+                    $response["data"] = array(
+                        "items" => $items,
+                        "count" => count($items),
+                        "total_amount" => $total_amount
+                    );
+                } else {
+                    $response["message"] = "Error fetching cart items: " . $con->error;
                 }
-                
-                $response["success"] = true;
-                $response["message"] = "Cart items fetched successfully";
-                $response["data"] = array(
-                    "items" => $items,
-                    "count" => count($items),
-                    "total_amount" => $total_amount
-                );
             } else {
-                $response["message"] = "Error fetching cart items: " . $con->error;
+                $response["success"] = false;
+                $response["message"] = "User ID not found in the database";
+                $response["data"] = array(
+                    "items" => [],
+                    "count" => 0,
+                    "total_amount" => 0
+                );
             }
         } else {
             $response["message"] = "User ID is required to fetch cart items";

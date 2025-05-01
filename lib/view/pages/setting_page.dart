@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:my_spa/controller/user_profile_controller.dart';
+import 'package:my_spa/controller/theme_controller.dart';
 import 'package:my_spa/services/api_service.dart';
-import 'package:my_spa/view/pages/connection_test_page.dart';
 import 'package:my_spa/view/pages/edit_profile_page.dart';
 import 'package:my_spa/view/pages/change_password_page.dart';
+import 'package:get_storage/get_storage.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -14,76 +15,63 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool isDarkMode = false;
-  bool notificationsEnabled = true;
-  late TextEditingController _serverIPController;
-  bool _isTestingConnection = false;
-  String _connectionStatus = "";
+  // Controllers
   final UserProfileController _profileController =
-      Get.put(UserProfileController());
+      Get.find<UserProfileController>();
+  final ThemeController _themeController = Get.find<ThemeController>();
+
+  // Storage for notification preference
+  final _box = GetStorage();
+  final _notificationKey = 'notifications_enabled';
+  bool notificationsEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _serverIPController = TextEditingController();
-    _loadServerIP();
+    _loadNotificationPreference();
+    // Refresh user profile data when entering settings
+    _profileController.loadUserData(fetchFromApi: true);
   }
 
-  @override
-  void dispose() {
-    _serverIPController.dispose();
-    super.dispose();
-  }
-
-  // Load the current server IP
-  Future<void> _loadServerIP() async {
-    final ip = await ApiService.serverIP;
+  // Load the notification preference
+  void _loadNotificationPreference() {
     setState(() {
-      _serverIPController.text = ip;
+      notificationsEnabled = _box.read(_notificationKey) ?? true;
     });
   }
 
-  // Save the new server IP
-  Future<void> _saveServerIP() async {
-    final newIP = _serverIPController.text.trim();
-    if (newIP.isNotEmpty) {
-      await ApiService.setServerIP(newIP);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Server IP updated successfully')),
-      );
-
-      // Test connection with new IP
-      _testConnection();
-    }
-  }
-
-  // Test connection to the server
-  Future<void> _testConnection() async {
+  // Save the notification preference
+  Future<void> _saveNotificationPreference(bool value) async {
+    await _box.write(_notificationKey, value);
     setState(() {
-      _isTestingConnection = true;
-      _connectionStatus = "Testing connection...";
+      notificationsEnabled = value;
     });
 
-    final success = await ApiService().testConnection();
-
-    setState(() {
-      _isTestingConnection = false;
-      _connectionStatus =
-          success ? "✅ Connected successfully" : "❌ Connection failed";
-    });
+    // Show confirmation to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text(value ? 'Notifications enabled' : 'Notifications disabled'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // Upload profile image
   Future<void> _uploadProfileImage() async {
     await _profileController.uploadProfileImage();
     if (_profileController.errorMessage.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_profileController.errorMessage.value)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_profileController.errorMessage.value)),
+        );
+      }
     } else if (_profileController.successMessage.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_profileController.successMessage.value)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_profileController.successMessage.value)),
+        );
+      }
     }
   }
 
@@ -145,7 +133,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                               ? NetworkImage(
                                                   'http://${ApiService.serverIP}/$profileImage')
                                               : const AssetImage(
-                                                      "assets/images/user/default_avatar.jpg")
+                                                      "assets/images/user/Logo.png")
                                                   as ImageProvider,
                                     )
                                   : null,
@@ -256,14 +244,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     settingsTile(
                       icon: Icons.brightness_6,
                       title: "Dark Mode",
-                      trailing: Switch(
-                        value: isDarkMode,
-                        activeColor: const Color(0xFF2A6877),
-                        onChanged: (value) {
-                          setState(() => isDarkMode = value);
-                          // Apply theme change logic here
-                        },
-                      ),
+                      trailing: Obx(() => Switch(
+                            value: _themeController.isDarkMode.value,
+                            activeColor: const Color(0xFF2A6877),
+                            onChanged: (value) {
+                              _themeController.setTheme(value);
+                            },
+                          )),
                     ),
                     settingsTile(
                       icon: Icons.notifications,
@@ -272,118 +259,11 @@ class _SettingsPageState extends State<SettingsPage> {
                         value: notificationsEnabled,
                         activeColor: const Color(0xFF2A6877),
                         onChanged: (value) {
-                          setState(() => notificationsEnabled = value);
-                          // Apply notification settings here
+                          _saveNotificationPreference(value);
                         },
                       ),
                     ),
                   ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Server Configuration Section
-              const Text(
-                "SERVER CONFIGURATION",
-                style: TextStyle(
-                  color: Color(0xFF2A6877),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  fontFamily: 'Urbanist',
-                ),
-              ),
-              const SizedBox(height: 10),
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "If you've changed networks or the app can't connect to the server, update the IP address below:",
-                        style: TextStyle(fontSize: 14, fontFamily: 'Urbanist'),
-                      ),
-                      const SizedBox(height: 15),
-                      TextField(
-                        controller: _serverIPController,
-                        decoration: InputDecoration(
-                          labelText: "Server IP Address",
-                          labelStyle: const TextStyle(color: Color(0xFF2A6877)),
-                          hintText: "e.g., 192.168.1.100",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: Color(0xFF2A6877)),
-                          ),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.save,
-                                color: Color(0xFF2A6877)),
-                            onPressed: _saveServerIP,
-                            tooltip: "Save IP",
-                          ),
-                        ),
-                        keyboardType: TextInputType.text,
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed:
-                                _isTestingConnection ? null : _testConnection,
-                            icon: const Icon(Icons.wifi),
-                            label: const Text("Test Connection"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2A6877),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 15, vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _isTestingConnection
-                                ? const Center(
-                                    child: CircularProgressIndicator(
-                                    color: Color(0xFF2A6877),
-                                  ))
-                                : Text(
-                                    _connectionStatus,
-                                    style: TextStyle(
-                                      color: _connectionStatus.contains("✅")
-                                          ? Colors.green
-                                          : _connectionStatus.contains("❌")
-                                              ? Colors.red
-                                              : Colors.black,
-                                      fontFamily: 'Urbanist',
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: () {
-                            Get.to(() => const ConnectionTestPage());
-                          },
-                          icon: const Icon(Icons.bug_report),
-                          label: const Text("Advanced Diagnostics"),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.deepOrange,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
 

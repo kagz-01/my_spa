@@ -25,6 +25,7 @@ try {
     // Create photos table if it doesn't exist - prevents errors on first run
     $create_table_query = "CREATE TABLE IF NOT EXISTS user_photos (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
         username VARCHAR(255) NOT NULL,
         caption TEXT NOT NULL,
         rating FLOAT DEFAULT 5.0,

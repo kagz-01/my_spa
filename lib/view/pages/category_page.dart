@@ -12,6 +12,9 @@ class _CategoryPageState extends State<CategoryPage>
     with SingleTickerProviderStateMixin {
   bool isServicesView = true;
   late TabController _tabController;
+  String _searchQuery = '';
+  // Add controller for search field
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -22,11 +25,19 @@ class _CategoryPageState extends State<CategoryPage>
         isServicesView = _tabController.index == 0;
       });
     });
+
+    // Add listener to the search controller
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose(); // Dispose the controller
     super.dispose();
   }
 
@@ -200,15 +211,13 @@ class _CategoryPageState extends State<CategoryPage>
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded),
-                    onPressed: () => Get.toNamed("/notification"),
-                  ),
+                  // Notification icon removed as requested
+                  const SizedBox(width: 48), // Added to maintain layout balance
                 ],
               ),
             ),
 
-            // Search Bar
+            // Search Bar with functionality
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Container(
@@ -218,6 +227,7 @@ class _CategoryPageState extends State<CategoryPage>
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: TextField(
+                  controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search...',
                     hintStyle: TextStyle(
@@ -225,8 +235,23 @@ class _CategoryPageState extends State<CategoryPage>
                       fontFamily: 'Urbanist',
                     ),
                     prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon:
+                                Icon(Icons.clear, color: Colors.grey.shade400),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
                     border: InputBorder.none,
                   ),
+                  onChanged: (value) {
+                    // Search implementation
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
                 ),
               ),
             ),
@@ -277,7 +302,9 @@ class _CategoryPageState extends State<CategoryPage>
   Widget buildServicesList() {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: services.entries.map((entry) {
+      children: services.entries
+          .where((entry) => entry.key.toLowerCase().contains(_searchQuery))
+          .map((entry) {
         return buildCategorySection(entry.key, entry.value, isService: true);
       }).toList(),
     );
@@ -286,7 +313,9 @@ class _CategoryPageState extends State<CategoryPage>
   Widget buildProductsList() {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: products.entries.map((entry) {
+      children: products.entries
+          .where((entry) => entry.key.toLowerCase().contains(_searchQuery))
+          .map((entry) {
         return buildCategorySection(entry.key, entry.value, isService: false);
       }).toList(),
     );
@@ -357,7 +386,7 @@ class _CategoryPageState extends State<CategoryPage>
                     ],
                   ),
 
-                  // Right side decoration with plus icons
+                  // Right side decoration - category image only, no plus icons
                   Positioned(
                     right: 0,
                     top: 0,
@@ -407,48 +436,7 @@ class _CategoryPageState extends State<CategoryPage>
                       ],
                     ),
                   ),
-
-                  // Small plus decoration
-                  Positioned(
-                    right: 40,
-                    top: 5,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Small plus decoration
-                  Positioned(
-                    right: 100,
-                    bottom: 10,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Plus sign decorations removed for a cleaner look
                 ],
               ),
             ),

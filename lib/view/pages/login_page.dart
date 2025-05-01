@@ -50,7 +50,7 @@ class _LoginPageState extends State<LoginPage>
                   const Text(
                     'Welcome Back',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
@@ -59,7 +59,7 @@ class _LoginPageState extends State<LoginPage>
                   const Text(
                     'Login to your account',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(height: 40),

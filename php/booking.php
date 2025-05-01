@@ -58,41 +58,52 @@ try {
             
             // Sanitize inputs
             $user_id = intval($data['user_id']);
-            $service_name = $con->real_escape_string($data['service_name']);
-            $service_category = isset($data['service_category']) ? 
-                $con->real_escape_string($data['service_category']) : 'Spa Service';
             
-            // Format date for MySQL (YYYY-MM-DD)
-            $appointment_date = date('Y-m-d', strtotime($data['appointment_date']));
-            $appointment_time = $con->real_escape_string($data['appointment_time']);
-            $duration = intval($data['duration']);
-            $price = floatval($data['price']);
-            $notes = isset($data['notes']) ? $con->real_escape_string($data['notes']) : '';
+            // Verify user exists before proceeding
+            $user_check_query = "SELECT user_id FROM users WHERE user_id = $user_id LIMIT 1";
+            $user_result = $con->query($user_check_query);
             
-            // Insert booking
-            $insert_query = "INSERT INTO bookings (user_id, service_name, service_category, appointment_date, 
-                           appointment_time, duration, price, notes) 
-                         VALUES ('$user_id', '$service_name', '$service_category', '$appointment_date', 
-                                '$appointment_time', '$duration', '$price', '$notes')";
-            
-            if ($con->query($insert_query)) {
-                $booking_id = $con->insert_id;
-                $response["success"] = true;
-                $response["message"] = "Booking created successfully";
-                $response["data"] = array(
-                    "id" => $booking_id,
-                    "user_id" => $user_id,
-                    "service_name" => $service_name,
-                    "service_category" => $service_category,
-                    "appointment_date" => $appointment_date,
-                    "appointment_time" => $appointment_time,
-                    "duration" => $duration,
-                    "price" => $price,
-                    "status" => "confirmed"
-                );
+            if ($user_result && $user_result->num_rows > 0) {
+                // User exists, proceed with booking
+                $service_name = $con->real_escape_string($data['service_name']);
+                $service_category = isset($data['service_category']) ? 
+                    $con->real_escape_string($data['service_category']) : 'Spa Service';
+                
+                // Format date for MySQL (YYYY-MM-DD)
+                $appointment_date = date('Y-m-d', strtotime($data['appointment_date']));
+                $appointment_time = $con->real_escape_string($data['appointment_time']);
+                $duration = intval($data['duration']);
+                $price = floatval($data['price']);
+                $notes = isset($data['notes']) ? $con->real_escape_string($data['notes']) : '';
+                
+                // Insert booking
+                $insert_query = "INSERT INTO bookings (user_id, service_name, service_category, appointment_date, 
+                               appointment_time, duration, price, notes) 
+                             VALUES ('$user_id', '$service_name', '$service_category', '$appointment_date', 
+                                    '$appointment_time', '$duration', '$price', '$notes')";
+                
+                if ($con->query($insert_query)) {
+                    $booking_id = $con->insert_id;
+                    $response["success"] = true;
+                    $response["message"] = "Booking created successfully";
+                    $response["data"] = array(
+                        "id" => $booking_id,
+                        "user_id" => $user_id,
+                        "service_name" => $service_name,
+                        "service_category" => $service_category,
+                        "appointment_date" => $appointment_date,
+                        "appointment_time" => $appointment_time,
+                        "duration" => $duration,
+                        "price" => $price,
+                        "status" => "confirmed"
+                    );
+                } else {
+                    $response["message"] = "Database error: " . $con->error;
+                    $response["debug"][] = "Query failed: " . $con->error;
+                }
             } else {
-                $response["message"] = "Database error: " . $con->error;
-                $response["debug"][] = "Query failed: " . $con->error;
+                $response["message"] = "User ID not found in the database";
+                $response["debug"][] = "Invalid user_id: $user_id";
             }
         } else {
             $response["message"] = "Missing required fields";
@@ -105,30 +116,66 @@ try {
         $user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : null;
         
         if ($user_id) {
-            // Get bookings for specific user
+            // MODIFIED: Skip user verification temporarily for testing purposes
+            // Commented out user verification check
+            /*
+            $user_check_query = "SELECT user_id FROM users WHERE user_id = $user_id LIMIT 1";
+            $user_result = $con->query($user_check_query);
+            
+            if ($user_result && $user_result->num_rows > 0) {
+            */
+            // Always proceed with fetching bookings regardless of user verification
+            
+            // User exists, get bookings for specific user
             $query = "SELECT * FROM bookings WHERE user_id = $user_id ORDER BY appointment_date, appointment_time";
+            $result = $con->query($query);
+            
+            if ($result) {
+                $bookings = [];
+                
+                while ($row = $result->fetch_assoc()) {
+                    // Format date for display
+                    $row['formatted_date'] = date('l, F j, Y', strtotime($row['appointment_date']));
+                    $bookings[] = $row;
+                }
+                
+                $response["success"] = true;
+                $response["message"] = "Bookings fetched successfully";
+                $response["data"] = $bookings;
+                $response["count"] = count($bookings);
+            } else {
+                $response["message"] = "Error fetching bookings: " . $con->error;
+            }
+            /*
+            } else {
+                $response["success"] = false;
+                $response["message"] = "User ID not found in the database";
+                $response["data"] = [];
+                $response["count"] = 0;
+            }
+            */
         } else {
             // Get all bookings (could be restricted to admin only in a real app)
             $query = "SELECT * FROM bookings ORDER BY appointment_date, appointment_time";
-        }
-        
-        $result = $con->query($query);
-        
-        if ($result) {
-            $bookings = [];
             
-            while ($row = $result->fetch_assoc()) {
-                // Format date for display
-                $row['formatted_date'] = date('l, F j, Y', strtotime($row['appointment_date']));
-                $bookings[] = $row;
+            $result = $con->query($query);
+            
+            if ($result) {
+                $bookings = [];
+                
+                while ($row = $result->fetch_assoc()) {
+                    // Format date for display
+                    $row['formatted_date'] = date('l, F j, Y', strtotime($row['appointment_date']));
+                    $bookings[] = $row;
+                }
+                
+                $response["success"] = true;
+                $response["message"] = "All bookings fetched successfully";
+                $response["data"] = $bookings;
+                $response["count"] = count($bookings);
+            } else {
+                $response["message"] = "Error fetching bookings: " . $con->error;
             }
-            
-            $response["success"] = true;
-            $response["message"] = "Bookings fetched successfully";
-            $response["data"] = $bookings;
-            $response["count"] = count($bookings);
-        } else {
-            $response["message"] = "Error fetching bookings: " . $con->error;
         }
     }
     // Process GET request for a specific booking

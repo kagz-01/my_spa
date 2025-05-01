@@ -20,16 +20,19 @@ if ($con->connect_error) {
     ]));
 }
 
-// Simple connection test file
-header('Content-Type: application/json');
-
-// Initialize response
-$response = array(
-    "success" => true,
-    "message" => "Connection successful",
-    "timestamp" => date('Y-m-d H:i:s')
-);
-
-// Send response
-echo json_encode($response);
+// Only output connection status if this file is accessed directly, not when included
+if (basename($_SERVER['PHP_SELF']) == basename(__FILE__)) {
+    // Simple connection test file
+    header('Content-Type: application/json');
+    
+    // Initialize response
+    $response = array(
+        "success" => true,
+        "message" => "Connection successful",
+        "timestamp" => date('Y-m-d H:i:s')
+    );
+    
+    // Send response
+    echo json_encode($response);
+}
 ?>

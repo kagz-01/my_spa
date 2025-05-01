@@ -59,6 +59,14 @@ try {
                     
                     // Remove password from data sent to client
                     unset($user['password']);
+
+                    // Make sure we're using the consistent field name 'user_id'
+                    if (isset($user['id']) && !isset($user['user_id'])) {
+                        // If the database still has 'id' field, rename it to 'user_id' for consistency
+                        $user['user_id'] = $user['id'];
+                        unset($user['id']);
+                    }
+                    
                     $response["data"] = $user;
                 } else {
                     $response["message"] = "Invalid email or password";

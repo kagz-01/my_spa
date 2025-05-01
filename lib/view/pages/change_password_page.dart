@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:my_spa/controller/user_profile_controller.dart';
 
 class ChangePasswordPage extends StatefulWidget {
-  const ChangePasswordPage({Key? key}) : super(key: key);
+  const ChangePasswordPage({super.key});
 
   @override
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();

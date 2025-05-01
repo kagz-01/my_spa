@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:get_storage/get_storage.dart';
+import 'package:my_spa/services/user_service.dart';
 
 class ApiService {
   static final _box = GetStorage();
   static const _serverIPKey = 'server_ip';
+  final UserService _userService = UserService();
 
   static const _defaultIP = '127.0.0.1';
 
@@ -22,7 +24,27 @@ class ApiService {
     return 'http://$ip/my_spa';
   }
 
-  // Helper to detect if running on Android emulator
+  // Get authenticated user ID - returns 0 if not authenticated (instead of throwing)
+  int getUserIdForApi() {
+    try {
+      return _userService.getAuthenticatedUserId();
+    } catch (e) {
+      print("Authentication error: $e");
+      return 0; // Return 0 instead of throwing
+    }
+  }
+
+  // Check if a user is currently authenticated
+  bool isAuthenticated() {
+    return _userService.isLoggedIn();
+  }
+
+  // Require authentication for API calls
+  void requireAuthentication() {
+    if (!isAuthenticated()) {
+      throw Exception("Authentication required");
+    }
+  }
 
   // Singleton pattern for API service
   static final ApiService _instance = ApiService._internal();
@@ -119,29 +141,42 @@ class ApiService {
       Map<String, dynamic> photoData) async {
     try {
       final url = await baseUrl;
+      final uploadUrl = '$url/share_photo.php';
 
-      // Print request details for debugging
-      print("Making share photo request to: $url/share_photo.php");
+      print("Making share photo request to: $uploadUrl");
 
-      final imageFile = photoData['image'] as String?;
+      // Make sure we have a user ID
+      if (!photoData.containsKey('user_id') && isAuthenticated()) {
+        // Add the authenticated user's ID
+        photoData['user_id'] = getUserIdForApi();
+      }
 
-      // Create a copy of the data without the File object
-      final data = {
+      final imageFilePath = photoData['image'] as String?;
+
+      if (imageFilePath == null) {
+        return {
+          'success': false,
+          'message': 'No image file provided',
+        };
+      }
+
+      // Create JSON data with the correct field name mapping
+      final jsonData = {
         'username': photoData['username'] ?? 'Anonymous',
         'caption': photoData['caption'] ?? '',
         'rating': photoData['rating'] ?? 5.0,
+        'user_id': photoData['user_id'] ?? getUserIdForApi(),
         'image_name':
-            imageFile != null ? imageFile.split('/').last : 'default_image.jpg',
-        'date_time': photoData['date'] ?? DateTime.now().toString(),
+            imageFilePath.split('/').last, // Convert path to just filename
       };
 
-      print("With data: ${jsonEncode(data)}");
+      print("Sending data: ${jsonEncode(jsonData)}");
 
       final response = await http
           .post(
-            Uri.parse('$url/share_photo.php'),
+            Uri.parse(uploadUrl),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(data),
+            body: jsonEncode(jsonData),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -158,7 +193,7 @@ class ApiService {
         };
       }
     } catch (e) {
-      print("Error occurred: $e");
+      print("Error occurred while sharing photo: $e");
       return {
         'success': false,
         'message': 'Network error: $e',
@@ -237,9 +272,21 @@ class ApiService {
     }
   }
 
-  // Get all bookings for a user
-  Future<Map<String, dynamic>> getUserBookings(int userId) async {
+  // Get all bookings for the authenticated user
+  Future<Map<String, dynamic>> getUserBookings() async {
     try {
+      // Check if user is authenticated
+      if (!isAuthenticated()) {
+        return {
+          'success': false,
+          'message': 'Authentication required',
+          'data': [],
+          'requireLogin': true
+        };
+      }
+
+      // Get authenticated user ID
+      final userId = getUserIdForApi();
       final url = await baseUrl;
 
       print("Fetching bookings from: $url/booking.php?user_id=$userId");
@@ -268,6 +315,22 @@ class ApiService {
         'data': [],
       };
     }
+  }
+
+  // Legacy method for backward compatibility
+  @Deprecated("Use getUserBookings() without parameters instead")
+  Future<Map<String, dynamic>> getUserBookingsWithUserId(int userId) async {
+    // Validate that the provided userId matches the authenticated user
+    final authenticatedUserId = getUserIdForApi();
+    if (userId != authenticatedUserId) {
+      return {
+        'success': false,
+        'message': 'Unauthorized access attempt',
+        'data': [],
+      };
+    }
+
+    return getUserBookings();
   }
 
   // Update booking status (e.g. cancel a booking)
@@ -326,6 +389,12 @@ class ApiService {
     try {
       final url = await baseUrl;
 
+      // Make sure we have a user ID
+      if (!cartData.containsKey('user_id') && isAuthenticated()) {
+        // Add the authenticated user's ID
+        cartData['user_id'] = getUserIdForApi();
+      }
+
       print("Adding to cart: $url/cart.php");
       print("With data: ${jsonEncode(cartData)}");
 
@@ -357,9 +426,21 @@ class ApiService {
     }
   }
 
-  // Get cart items for a user
-  Future<Map<String, dynamic>> getUserCart(int userId) async {
+  // Get cart items for the authenticated user
+  Future<Map<String, dynamic>> getUserCart() async {
     try {
+      // Check if user is authenticated
+      if (!isAuthenticated()) {
+        return {
+          'success': false,
+          'message': 'Authentication required',
+          'data': {'items': [], 'count': 0, 'total_amount': 0},
+          'requireLogin': true
+        };
+      }
+
+      // Get authenticated user ID
+      final userId = getUserIdForApi();
       final url = await baseUrl;
 
       print("Fetching cart from: $url/cart.php?user_id=$userId");
@@ -389,6 +470,22 @@ class ApiService {
         'data': {'items': [], 'count': 0, 'total_amount': 0},
       };
     }
+  }
+
+  // Legacy method for backward compatibility
+  @Deprecated("Use getUserCart() without parameters instead")
+  Future<Map<String, dynamic>> getUserCartWithUserId(int userId) async {
+    // Validate that the provided userId matches the authenticated user
+    final authenticatedUserId = getUserIdForApi();
+    if (userId != authenticatedUserId) {
+      return {
+        'success': false,
+        'message': 'Unauthorized access attempt',
+        'data': {'items': [], 'count': 0, 'total_amount': 0},
+      };
+    }
+
+    return getUserCart();
   }
 
   // Remove item from cart
@@ -423,10 +520,13 @@ class ApiService {
     }
   }
 
-  // Process checkout for a user
-  Future<Map<String, dynamic>> checkout(int userId) async {
+  // Process checkout for the authenticated user
+  Future<Map<String, dynamic>> checkout() async {
     try {
       final url = await baseUrl;
+
+      // Get the authenticated user's ID
+      final userId = getUserIdForApi();
 
       print("Processing checkout: $url/cart.php?checkout&user_id=$userId");
 
@@ -455,9 +555,35 @@ class ApiService {
     }
   }
 
-  // Get user profile
-  Future<Map<String, dynamic>> getUserProfile(int userId) async {
+  // Legacy method for backward compatibility
+  @Deprecated("Use checkout() without parameters instead")
+  Future<Map<String, dynamic>> checkoutWithUserId(int userId) async {
+    // Validate that the provided userId matches the authenticated user
+    final authenticatedUserId = getUserIdForApi();
+    if (userId != authenticatedUserId) {
+      return {
+        'success': false,
+        'message': 'Unauthorized access attempt',
+      };
+    }
+
+    return checkout();
+  }
+
+  // Get current user's profile
+  Future<Map<String, dynamic>> getUserProfile() async {
     try {
+      // Check if user is authenticated
+      if (!isAuthenticated()) {
+        return {
+          'success': false,
+          'message': 'Authentication required',
+          'requireLogin': true
+        };
+      }
+
+      // Get authenticated user ID
+      final userId = getUserIdForApi();
       final url = await baseUrl;
 
       print("Fetching user profile: $url/user_profile.php?user_id=$userId");
@@ -485,6 +611,21 @@ class ApiService {
         'message': 'Network error: $e',
       };
     }
+  }
+
+  // Legacy method for backward compatibility
+  @Deprecated("Use getUserProfile() without parameters instead")
+  Future<Map<String, dynamic>> getUserProfileWithUserId(int userId) async {
+    // Validate that the provided userId matches the authenticated user
+    final authenticatedUserId = getUserIdForApi();
+    if (userId != authenticatedUserId) {
+      return {
+        'success': false,
+        'message': 'Unauthorized access attempt',
+      };
+    }
+
+    return getUserProfile();
   }
 
   // Update user profile
@@ -524,10 +665,11 @@ class ApiService {
     }
   }
 
-  // Upload profile image
-  Future<Map<String, dynamic>> uploadProfileImage(
-      int userId, String filePath) async {
+  // Upload profile image for authenticated user
+  Future<Map<String, dynamic>> uploadProfileImage(String filePath) async {
     try {
+      // Get authenticated user ID
+      final userId = getUserIdForApi();
       final url = await baseUrl;
       final uploadUrl = '$url/user_profile.php?upload_image';
 
@@ -561,10 +703,26 @@ class ApiService {
     }
   }
 
-  // Change password
+  Future<Map<String, dynamic>> uploadProfileImageWithUserId(
+      int userId, String filePath) async {
+    // Validate that the provided userId matches the authenticated user
+    final authenticatedUserId = getUserIdForApi();
+    if (userId != authenticatedUserId) {
+      return {
+        'success': false,
+        'message': 'Unauthorized access attempt',
+      };
+    }
+
+    return uploadProfileImage(filePath);
+  }
+
+  // Change password for authenticated user
   Future<Map<String, dynamic>> changePassword(
-      int userId, String currentPassword, String newPassword) async {
+      String currentPassword, String newPassword) async {
     try {
+      // Get authenticated user ID
+      final userId = getUserIdForApi();
       final url = await baseUrl;
 
       print("Changing password: $url/user_profile.php?change_password");
@@ -601,5 +759,22 @@ class ApiService {
         'message': 'Network error: $e',
       };
     }
+  }
+
+  // Legacy method for backward compatibility
+  @Deprecated(
+      "Use changePassword(String currentPassword, String newPassword) instead")
+  Future<Map<String, dynamic>> changePasswordWithUserId(
+      int userId, String currentPassword, String newPassword) async {
+    // Validate that the provided userId matches the authenticated user
+    final authenticatedUserId = getUserIdForApi();
+    if (userId != authenticatedUserId) {
+      return {
+        'success': false,
+        'message': 'Unauthorized access attempt',
+      };
+    }
+
+    return changePassword(currentPassword, newPassword);
   }
 }

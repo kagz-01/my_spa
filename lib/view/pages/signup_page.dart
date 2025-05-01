@@ -71,7 +71,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                   const Text(
                     'Create an Account',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
@@ -79,7 +79,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                   const SizedBox(height: 16),
                   const Text(
                     'Sign up to get started',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: Colors.black),
                   ),
                   const SizedBox(height: 40),
                   textField(

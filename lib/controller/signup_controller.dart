@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:my_spa/services/api_service.dart';
+import 'package:my_spa/services/user_service.dart';
+import 'package:my_spa/controller/user_profile_controller.dart';
 
 class SignupController extends GetxController {
   // API service instance
   final ApiService _apiService = ApiService();
+  final UserService _userService = UserService();
+
+  // Get the user profile controller
+  final UserProfileController _profileController =
+      Get.find<UserProfileController>();
 
   var isLoading = false.obs;
   var errorMessage = ''.obs;
@@ -29,9 +36,17 @@ class SignupController extends GetxController {
       final result = await _apiService.registerUser(username, email, password);
 
       if (result['success']) {
-        Get.snackbar("Success", result['message'],
-            backgroundColor: Colors.green, colorText: Colors.white);
-        Get.toNamed('/login');
+        // Show success message
+        Get.snackbar(
+          "Account Created Successfully",
+          "Please log in with your new account details",
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+
+        // Always direct to login page after successful signup
+        Get.offAllNamed('/login');
       } else {
         errorMessage.value = result['message'];
         Get.snackbar("Signup Failed", result['message'],

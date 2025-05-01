@@ -430,9 +430,9 @@ class WelcomePage extends StatelessWidget {
                           ),
                           child: myButton(
                             onPressed: () {
-                              Get.toNamed("/dash");
+                              Get.offAllNamed("/dash");
                             },
-                            label: "Begin Your Journey",
+                            label: "Continue to Kagz Spa",
                             fontSize: 16,
                             color: primaryColor,
                             minWidth: 240,
@@ -546,7 +546,7 @@ class WelcomePage extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // Use minimum size needed
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(10),

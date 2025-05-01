@@ -1025,9 +1025,9 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                                       isProcessing = true;
                                     });
 
-                                    // TODO: In a real app, get the actual user ID from authentication
+                                    // Get authenticated user ID from API service
                                     final userId =
-                                        1; // Dummy user ID for testing
+                                        _apiService.getUserIdForApi();
 
                                     // Calculate price based on duration
                                     final price =
@@ -1129,13 +1129,13 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
   }
 
   void _addToCart() async {
-    // TODO: In a real app, get the actual user ID from authentication
-    final userId = 1; // Dummy user ID for testing
+    // Get authenticated user ID from API service
+    final userId = _apiService.getUserIdForApi();
 
     try {
       // Set product details
       final productName = items[selectedItemIndex]['name'];
-      final price = 45.0; // Fixed price for products in the demo
+      final price = 20.0; // Fixed price for products in the demo
 
       // Call API to add to cart
       final result = await _apiService.addToCart({

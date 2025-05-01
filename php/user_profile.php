@@ -29,7 +29,7 @@ try {
         
         if ($user_id) {
             // Fetch user data
-            $query = "SELECT id, username, email, phone, bio, profile_image FROM users WHERE id = $user_id LIMIT 1";
+            $query = "SELECT user_id, username, email, phone, bio, profile_image FROM users WHERE user_id = $user_id LIMIT 1";
             $result = $con->query($query);
             
             if ($result && $result->num_rows > 0) {
@@ -90,14 +90,14 @@ try {
             // If there are fields to update
             if (count($updates) > 0) {
                 $update_query .= implode(", ", $updates);
-                $update_query .= " WHERE id = $user_id";
+                $update_query .= " WHERE user_id = $user_id";
                 
                 if ($con->query($update_query)) {
                     $response["success"] = true;
                     $response["message"] = "Profile updated successfully";
                     
                     // Fetch updated user data
-                    $fetch_query = "SELECT id, username, email, phone, bio, profile_image FROM users WHERE id = $user_id LIMIT 1";
+                    $fetch_query = "SELECT user_id, username, email, phone, bio, profile_image FROM users WHERE user_id = $user_id LIMIT 1";
                     $result = $con->query($fetch_query);
                     
                     if ($result && $result->num_rows > 0) {
@@ -120,10 +120,22 @@ try {
         $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : null;
         
         if ($user_id && isset($_FILES['image'])) {
+            $response["debug"][] = "Received profile image upload request for user: " . $user_id;
+            $response["debug"][] = "File details: " . json_encode($_FILES['image']);
+            
             // Create uploads directory if it doesn't exist
             $upload_dir = '../uploads/profile/';
             if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
+                if (!mkdir($upload_dir, 0777, true)) {
+                    throw new Exception("Failed to create profile upload directory");
+                }
+                chmod($upload_dir, 0777);
+                $response["debug"][] = "Created profile upload directory: $upload_dir";
+            }
+            
+            // Validate file
+            if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception("File upload error code: " . $_FILES['image']['error']);
             }
             
             // Generate unique filename
@@ -133,22 +145,25 @@ try {
             
             // Move uploaded file
             if (move_uploaded_file($_FILES['image']['tmp_name'], $file_path)) {
+                $response["debug"][] = "File moved to $file_path";
+                
                 // Update user profile with new image
                 $image_path = 'uploads/profile/' . $file_name;
-                $update_query = "UPDATE users SET profile_image = '$image_path' WHERE id = $user_id";
+                $update_query = "UPDATE users SET profile_image = '$image_path' WHERE user_id = $user_id";
                 
                 if ($con->query($update_query)) {
                     $response["success"] = true;
                     $response["message"] = "Profile image uploaded successfully";
                     $response["data"] = array("profile_image" => $image_path);
                 } else {
-                    $response["message"] = "Error updating profile image in database: " . $con->error;
+                    throw new Exception("Error updating profile image in database: " . $con->error);
                 }
             } else {
-                $response["message"] = "Error uploading file";
+                throw new Exception("Failed to move uploaded file. Check directory permissions.");
             }
         } else {
             $response["message"] = "User ID and image file are required";
+            $response["debug"][] = "Missing user_id or image file";
         }
     }
     // Process POST request for changing password
@@ -164,7 +179,7 @@ try {
             $new_password = $data['new_password'];
             
             // Verify current password
-            $query = "SELECT password FROM users WHERE id = $user_id LIMIT 1";
+            $query = "SELECT password FROM users WHERE user_id = $user_id LIMIT 1";
             $result = $con->query($query);
             
             if ($result && $result->num_rows > 0) {
@@ -173,7 +188,7 @@ try {
                 if (password_verify($current_password, $user['password'])) {
                     // Current password is correct, update with new password
                     $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                    $update_query = "UPDATE users SET password = '$hashed_password' WHERE id = $user_id";
+                    $update_query = "UPDATE users SET password = '$hashed_password' WHERE user_id = $user_id";
                     
                     if ($con->query($update_query)) {
                         $response["success"] = true;

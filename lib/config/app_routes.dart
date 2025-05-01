@@ -12,14 +12,15 @@ import 'package:my_spa/view/pages/login_page.dart';
 import 'package:my_spa/view/pages/signup_page.dart';
 import 'package:my_spa/view/pages/share_photo_page.dart';
 
-List<GetPage> myroutes = [
+// All routes in a single list - no longer separating by authentication
+final List<GetPage> myroutes = [
   GetPage(name: "/", page: () => FirstPage()),
   GetPage(name: "/login", page: () => LoginPage()),
   GetPage(name: "/signup", page: () => const Signup()),
+  GetPage(name: "/welcome", page: () => const WelcomePage()),
   GetPage(name: "/dash", page: () => const Dash()),
   GetPage(name: "/home", page: () => const HomePage()),
   GetPage(name: "/notification", page: () => const NotificationPage()),
-  GetPage(name: "/welcome", page: () => const WelcomePage()),
   GetPage(name: "/category", page: () => CategoryPage()),
   GetPage(name: "/category-detail", page: () => const CategoryDetailPage()),
   GetPage(name: "/settings", page: () => SettingsPage()),

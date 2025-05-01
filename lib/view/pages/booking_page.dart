@@ -17,8 +17,8 @@ class _BookingPageState extends State<BookingPage>
   bool isError = false;
   String errorMessage = '';
 
-  // Dummy user ID (in a real app, get from authentication)
-  final int userId = 1;
+  // Get user ID dynamically from the auth service instead of hardcoding
+  int get userId => _apiService.getUserIdForApi();
 
   // Data containers
   List<dynamic> upcomingBookings = [];
@@ -32,7 +32,16 @@ class _BookingPageState extends State<BookingPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+
+    // Check if tab parameter was passed for navigation
+    if (Get.parameters.containsKey('tab')) {
+      final tabIndex = int.tryParse(Get.parameters['tab'] ?? '0') ?? 0;
+      _tabController =
+          TabController(length: 2, vsync: this, initialIndex: tabIndex);
+    } else {
+      _tabController = TabController(length: 2, vsync: this);
+    }
+
     _loadData();
   }
 
@@ -68,7 +77,7 @@ class _BookingPageState extends State<BookingPage>
 
   // Load bookings from the API
   Future<void> _loadBookings() async {
-    final result = await _apiService.getUserBookings(userId);
+    final result = await _apiService.getUserBookings();
 
     if (result['success']) {
       final bookings = result['data'] as List<dynamic>;
@@ -89,7 +98,7 @@ class _BookingPageState extends State<BookingPage>
 
   // Load cart from the API
   Future<void> _loadCart() async {
-    final result = await _apiService.getUserCart(userId);
+    final result = await _apiService.getUserCart();
 
     if (result['success']) {
       setState(() {
@@ -179,14 +188,7 @@ class _BookingPageState extends State<BookingPage>
         title: const Text("Booking", style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.black),
-            onPressed: () {
-              // Navigate to notifications page
-            },
-          ),
-        ],
+        // Removed notification button from app bar
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -203,15 +205,15 @@ class _BookingPageState extends State<BookingPage>
                         children: [
                           CircleAvatar(
                             radius: 25,
-                            backgroundImage: AssetImage(
-                                'assets/images/user/default_avatar.jpg'),
+                            backgroundImage:
+                                AssetImage('assets/images/user/Logo.png'),
                           ),
                           const SizedBox(width: 12),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Agalya S A',
+                                'kagz \n Spa',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -228,13 +230,8 @@ class _BookingPageState extends State<BookingPage>
                               ),
                             ],
                           ),
+                          // Notification button removed
                           const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.notifications_outlined),
-                            onPressed: () {
-                              // Handle notification button
-                            },
-                          ),
                         ],
                       ),
                     ),
@@ -462,7 +459,7 @@ class _BookingPageState extends State<BookingPage>
                   ElevatedButton(
                     onPressed: () async {
                       try {
-                        final result = await _apiService.checkout(userId);
+                        final result = await _apiService.checkout();
 
                         if (result['success']) {
                           Get.snackbar(
@@ -597,7 +594,15 @@ class _BookingPageState extends State<BookingPage>
             IconButton(
               icon: const Icon(Icons.phone, color: Colors.green),
               onPressed: () {
-                // Implement call functionality
+                // Show functionality unavailable message
+                Get.snackbar(
+                  'Notice',
+                  'Functionality currently unavailable',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.grey[700],
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
               },
             ),
 
@@ -724,25 +729,21 @@ class _BookingPageState extends State<BookingPage>
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            // Product image
+            // Product image - MODIFIED to handle both asset and network images
             Container(
               width: 60,
               height: 60,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                image: item['image_path'] != null &&
-                        item['image_path'].toString().isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(item['image_path']),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
                 color: Colors.grey[200],
               ),
-              child: item['image_path'] == null ||
-                      item['image_path'].toString().isEmpty
-                  ? Icon(Icons.shopping_bag, color: Colors.brown[600])
-                  : null,
+              child: item['image_path'] != null &&
+                      item['image_path'].toString().isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: _buildProductImage(item['image_path']),
+                    )
+                  : Icon(Icons.shopping_bag, color: Colors.brown[600]),
             ),
             const SizedBox(width: 12),
 
@@ -770,18 +771,18 @@ class _BookingPageState extends State<BookingPage>
                   Row(
                     children: [
                       Text(
-                        '\$${(double.parse(item['price'].toString()) * int.parse(item['quantity'].toString())).toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        '\$${item['price']}',
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          color: Colors.green[700],
+                          fontSize: 14,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Text(
-                        'Qty: ${item['quantity']}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 13,
+                        '× ${item['quantity']}',
+                        style: const TextStyle(
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -793,10 +794,8 @@ class _BookingPageState extends State<BookingPage>
             // Remove button
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () {
-                final itemId = int.parse(item['id'].toString());
-                _removeFromCart(itemId);
-              },
+              onPressed: () =>
+                  _removeFromCart(int.parse(item['id'].toString())),
             ),
           ],
         ),
@@ -804,12 +803,41 @@ class _BookingPageState extends State<BookingPage>
     );
   }
 
+  // Helper method to determine if path is asset or network and build appropriate image widget
+  Widget _buildProductImage(String imagePath) {
+    // Check if the image path is a local asset path
+    if (imagePath.startsWith('assets/')) {
+      return Image.asset(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(
+          Icons.spa,
+          color: Colors.white,
+          size: 30,
+        ),
+      );
+    } else {
+      // This is a network image
+      return Image.network(
+        imagePath.startsWith('http')
+            ? imagePath
+            : 'http://${ApiService.serverIP}/$imagePath',
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(
+          Icons.spa,
+          color: Colors.white,
+          size: 30,
+        ),
+      );
+    }
+  }
+
   // Helper method to format date in a more human-readable way
   String getFormattedDate(String dateStr) {
     try {
       // If it's already in the format we want, just return it
       if (dateStr.contains('Thursday') || dateStr.contains('Monday')) {
-        return dateStr.split(',')[0] + ',' + dateStr.split(',')[1];
+        return '${dateStr.split(',')[0]},${dateStr.split(',')[1]}';
       }
 
       // Otherwise, try to parse and reformat
