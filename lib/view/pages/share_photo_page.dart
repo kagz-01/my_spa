@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../widgets/my_button.dart';
-import '../widgets/my_text_field.dart';
 import 'package:my_spa/services/api_service.dart';
 
 class SharePhotoPage extends StatefulWidget {
@@ -97,14 +96,13 @@ class _SharePhotoPageState extends State<SharePhotoPage> {
       // Get the authenticated user ID
       int userId = _apiService.getUserIdForApi();
 
-      // Create photo data to pass to API, matching the exact field names expected by the backend
       final photoData = {
         'user_id': userId,
         'username': _usernameController.text,
         'caption': _captionController.text,
         'rating': _rating,
-        'image_name': _selectedImage!.path.split('/').last, // Just the filename
-        'image': _selectedImage!.path, // Full path for local display
+        'image_name': _selectedImage!.path.split('/').last,
+        'image': _selectedImage!.path,
       };
 
       // Send data to server

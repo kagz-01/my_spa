@@ -30,15 +30,15 @@ class _HomePageState extends State<HomePage>
   final List<Map<String, dynamic>> popularPackages = [
     {
       'name': 'Full Body Massage',
-      'price': 150,
+      'price': 90,
       'image': 'assets/images/services/massage.jpg',
       'rating': 4.8,
-      'ratingCount': 120,
+      'ratingCount': 178,
       'description': 'Relaxing full body massage for 60 minutes'
     },
     {
       'name': 'Facial Treatment',
-      'price': 120,
+      'price': 50,
       'image': 'assets/images/services/facial.jpg',
       'rating': 4.7,
       'ratingCount': 95,
@@ -46,7 +46,7 @@ class _HomePageState extends State<HomePage>
     },
     {
       'name': 'Spa Day Package',
-      'price': 250,
+      'price': 80,
       'image': 'assets/images/services/spa.jpg',
       'rating': 4.9,
       'ratingCount': 210,
@@ -54,7 +54,7 @@ class _HomePageState extends State<HomePage>
     },
     {
       'name': 'Manicure & Pedicure',
-      'price': 80,
+      'price': 30,
       'image': 'assets/images/services/pedi.jpg',
       'rating': 4.6,
       'ratingCount': 88,
@@ -68,7 +68,7 @@ class _HomePageState extends State<HomePage>
       'title': 'Weekend Special',
       'discount': '20% OFF',
       'code': 'WEEKEND20',
-      'validUntil': 'Valid until Apr 30',
+      'validUntil': 'Valid until jun 30',
       'image': 'assets/images/services/massage.jpg',
     },
     {
@@ -900,12 +900,11 @@ class _HomePageState extends State<HomePage>
             ),
           ),
 
-          // Photo - Use network image if isNetworkImage is true
           ClipRRect(
             child: photo['isNetworkImage'] == true
                 ? Image.network(
                     // Create the full URL for the network image
-                    'http://${ApiService.serverIP}/${photo['image']}',
+                    '${ApiService.imageBaseUrl}/${photo['image']}',
                     width: double.infinity,
                     height: 180,
                     fit: BoxFit.cover,

@@ -26,5 +26,5 @@ sudo chmod 644 "$DEST_DIR"/*.php
 sudo chown daemon:daemon "$DEST_DIR"/*.php
 
 echo "Files successfully copied to $DEST_DIR"
-echo "Remember to access http://localhost/my_spa/php/add_foreign_keys.php in your browser"
+echo "Remember to access http://localhost/my_spa/add_foreign_keys.php in your browser"
 echo "to apply the foreign key constraints to your database."

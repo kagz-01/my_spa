@@ -14,6 +14,11 @@ class ApiService {
     return _box.read(_serverIPKey) ?? _defaultIP;
   }
 
+  // New synchronous getter for server IP (for image URLs)
+  static String get serverUrlSync {
+    return 'http://${_box.read(_serverIPKey) ?? _defaultIP}';
+  }
+
   static Future<void> setServerIP(String ip) async {
     await _box.write(_serverIPKey, ip);
   }
@@ -22,6 +27,11 @@ class ApiService {
   Future<String> get baseUrl async {
     final ip = await serverIP;
     return 'http://$ip/my_spa';
+  }
+
+  // New synchronous base URL getter for image URLs
+  static String get imageBaseUrl {
+    return '${serverUrlSync}/my_spa';
   }
 
   // Get authenticated user ID - returns 0 if not authenticated (instead of throwing)
@@ -152,46 +162,71 @@ class ApiService {
       }
 
       final imageFilePath = photoData['image'] as String?;
-
+      if (imageFilePath != null && imageFilePath.isEmpty) {
+        // If the image path is empty, set it to null
+        photoData['image'] = null;
+      }
       if (imageFilePath == null) {
-        return {
-          'success': false,
-          'message': 'No image file provided',
+        // Create JSON data with the correct field mapping
+        final jsonData = {
+          'username': photoData['username'] ?? 'Anonymous',
+          'caption': photoData['caption'] ?? '',
+          'rating': photoData['rating'] ?? 5.0,
+          'user_id': photoData['user_id'] ?? getUserIdForApi(),
         };
-      }
 
-      // Create JSON data with the correct field name mapping
-      final jsonData = {
-        'username': photoData['username'] ?? 'Anonymous',
-        'caption': photoData['caption'] ?? '',
-        'rating': photoData['rating'] ?? 5.0,
-        'user_id': photoData['user_id'] ?? getUserIdForApi(),
-        'image_name':
-            imageFilePath.split('/').last, // Convert path to just filename
-      };
+        print("Sending data without image: ${jsonEncode(jsonData)}");
 
-      print("Sending data: ${jsonEncode(jsonData)}");
+        final response = await http
+            .post(
+              Uri.parse(uploadUrl),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(jsonData),
+            )
+            .timeout(const Duration(seconds: 15));
 
-      final response = await http
-          .post(
-            Uri.parse(uploadUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(jsonData),
-          )
-          .timeout(const Duration(seconds: 15));
+        print("Response status: ${response.statusCode}");
+        print("Response body: ${response.body}");
 
-      print("Response status: ${response.statusCode}");
-      print("Response body: ${response.body}");
-
-      // Check if response has content before parsing
-      if (response.body.isNotEmpty) {
-        return jsonDecode(response.body);
+        if (response.body.isNotEmpty) {
+          return jsonDecode(response.body);
+        }
       } else {
-        return {
-          'success': false,
-          'message': 'Empty response from server',
-        };
+        // Handle actual file upload using multipart/form-data
+        print("Uploading image file from: $imageFilePath");
+
+        // Create multipart request
+        final request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+
+        // Add file to upload
+        final file = await http.MultipartFile.fromPath('image', imageFilePath);
+        request.files.add(file);
+
+        // Add other form data
+        request.fields['username'] = photoData['username'] ?? 'Anonymous';
+        request.fields['caption'] = photoData['caption'] ?? '';
+        request.fields['rating'] = (photoData['rating'] ?? 5.0).toString();
+        request.fields['user_id'] =
+            (photoData['user_id'] ?? getUserIdForApi()).toString();
+
+        // Send the request
+        final streamedResponse =
+            await request.send().timeout(const Duration(seconds: 30));
+        final response = await http.Response.fromStream(streamedResponse);
+
+        print("Response status: ${response.statusCode}");
+        print("Response body: ${response.body}");
+
+        if (response.body.isNotEmpty) {
+          return jsonDecode(response.body);
+        }
       }
+
+      // If we got here, return a fallback response
+      return {
+        'success': false,
+        'message': 'Empty response from server',
+      };
     } catch (e) {
       print("Error occurred while sharing photo: $e");
       return {

@@ -1129,19 +1129,17 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
   }
 
   void _addToCart() async {
-    // Get authenticated user ID from API service
     final userId = _apiService.getUserIdForApi();
 
     try {
       // Set product details
       final productName = items[selectedItemIndex]['name'];
-      final price = 20.0; // Fixed price for products in the demo
+      final price = 20.0;
 
-      // Call API to add to cart
       final result = await _apiService.addToCart({
         'user_id': userId,
         'product_name': productName,
-        'product_category': title, // category name
+        'product_category': title,
         'quantity': quantity,
         'price': price,
         'image_path': items[selectedItemIndex]['image'],

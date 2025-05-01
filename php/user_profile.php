@@ -123,19 +123,16 @@ try {
             $response["debug"][] = "Received profile image upload request for user: " . $user_id;
             $response["debug"][] = "File details: " . json_encode($_FILES['image']);
             
-            // Create uploads directory if it doesn't exist
+            // Define the upload directory - this already exists in the Apache document root
             $upload_dir = '../uploads/profile/';
-            if (!file_exists($upload_dir)) {
-                if (!mkdir($upload_dir, 0777, true)) {
-                    throw new Exception("Failed to create profile upload directory");
-                }
-                chmod($upload_dir, 0777);
-                $response["debug"][] = "Created profile upload directory: $upload_dir";
-            }
+            $response["debug"][] = "Using upload directory path: $upload_dir";
             
             // Validate file
             if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-                throw new Exception("File upload error code: " . $_FILES['image']['error']);
+                $response["message"] = "File upload error code: " . $_FILES['image']['error'];
+                $response["debug"][] = "Upload failed with error code: " . $_FILES['image']['error'];
+                echo json_encode($response);
+                exit;
             }
             
             // Generate unique filename
@@ -156,10 +153,18 @@ try {
                     $response["message"] = "Profile image uploaded successfully";
                     $response["data"] = array("profile_image" => $image_path);
                 } else {
-                    throw new Exception("Error updating profile image in database: " . $con->error);
+                    $response["message"] = "Error updating profile image in database: " . $con->error;
+                    $response["debug"][] = "Database update failed: " . $con->error;
                 }
             } else {
-                throw new Exception("Failed to move uploaded file. Check directory permissions.");
+                $error = error_get_last();
+                $response["message"] = "Failed to move uploaded file. Check directory permissions.";
+                $response["debug"][] = "Failed to move uploaded file from " . $_FILES['image']['tmp_name'] . " to " . $file_path;
+                $response["debug"][] = "PHP error: " . ($error ? $error['message'] : 'Unknown error');
+                
+                // Try to diagnose the issue
+                $response["debug"][] = "Directory exists: " . (file_exists($upload_dir) ? 'Yes' : 'No');
+                $response["debug"][] = "Directory is writable: " . (is_writable($upload_dir) ? 'Yes' : 'No');
             }
         } else {
             $response["message"] = "User ID and image file are required";

@@ -12,22 +12,20 @@ ob_start();
 // Initialize response
 $response = [
     "success" => false,
-    "message" => "Starting unified photo process",
+    "message" => "Starting photo sharing process",
     "data" => null,
-    "debug" => [],
-    "actions" => [],
-    "errors" => []
+    "debug" => []
 ];
 
 try {
     // Connect to database
     require 'connect.php';
-    $response["debug"][] = "Database connection established";
+    $response["debug"][] = "Database connection included";
 
-    // === PHASE 1: Ensure user_photos table exists ===
+    // Create photos table if it doesn't exist
     $create_table_query = "CREATE TABLE IF NOT EXISTS user_photos (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NULL,
+        user_id INT NOT NULL,
         username VARCHAR(255) NOT NULL,
         caption TEXT NOT NULL,
         rating FLOAT DEFAULT 5.0,
@@ -37,92 +35,108 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
 
-    if ($con->query($create_table_query)) {
-        $response["actions"][] = "user_photos table created or already exists";
-    } else {
-        throw new Exception("Failed to create user_photos table: " . $con->error);
+    if (!$con->query($create_table_query)) {
+        throw new Exception("Failed to create table: " . $con->error);
     }
+    $response["debug"][] = "Table checked/created";
 
-    // === PHASE 2: Add user_id column if missing and populate ===
-    $check_column = "SHOW COLUMNS FROM user_photos LIKE 'user_id'";
-    $column_exists = $con->query($check_column);
+    // Process the request based on content type
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Get server document root path for absolute paths
+        $server_path = dirname(dirname($_SERVER['SCRIPT_FILENAME']));
+        $response["debug"][] = "Server path: $server_path";
 
-    if ($column_exists && $column_exists->num_rows == 0) {
-        $add_column = "ALTER TABLE user_photos ADD COLUMN user_id INT NULL AFTER id";
-        if ($con->query($add_column)) {
-            $response["actions"][] = "Added user_id column to user_photos";
-
-            $users = $con->query("SELECT user_id, username FROM users");
-            if ($users && $users->num_rows > 0) {
-                $usermap = [];
-                while ($user = $users->fetch_assoc()) {
-                    $usermap[$user['username']] = $user['user_id'];
-                }
-
-                $update_count = 0;
-                foreach ($usermap as $username => $userid) {
-                    $update_query = "UPDATE user_photos SET user_id = $userid WHERE username = '$username'";
-                    if ($con->query($update_query)) {
-                        $affected = $con->affected_rows;
-                        if ($affected > 0) $update_count += $affected;
+        // Handle multipart form data upload
+        if (!empty($_FILES) && isset($_FILES['image'])) {
+            $response["debug"][] = "Processing multipart form data";
+            $response["debug"][] = "Files data: " . json_encode($_FILES);
+            $response["debug"][] = "Post data: " . json_encode($_POST);
+            
+            // Get form data
+            $username = isset($_POST['username']) ? $con->real_escape_string($_POST['username']) : '';
+            $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+            $caption = isset($_POST['caption']) ? $con->real_escape_string($_POST['caption']) : '';
+            $rating = isset($_POST['rating']) ? floatval($_POST['rating']) : 5.0;
+            
+            $response["debug"][] = "Form data: username=$username, user_id=$user_id, caption=$caption, rating=$rating";
+            
+            // Validate required fields
+            if (empty($username) || empty($caption) || $user_id <= 0) {
+                throw new Exception("Invalid input data. Required fields: username, caption, user_id");
+            }
+            
+            // Handle file upload
+            if ($_FILES['image']['error'] === UPLOAD_ERR_OK) {
+                // Use absolute path for uploads directory
+                $upload_dir = $server_path . '/uploads/photos/';
+                if (!is_dir($upload_dir)) {
+                    // Try to create directory with proper permissions
+                    if (!@mkdir($upload_dir, 0777, true)) {
+                        $response["debug"][] = "Failed to create directory: $upload_dir";
+                        // Fall back to using existing directory
+                        $upload_dir = $server_path . '/uploads/';
+                        if (!is_dir($upload_dir)) {
+                            if (!@mkdir($upload_dir, 0777, true)) {
+                                throw new Exception("Cannot create upload directory. Please create it manually.");
+                            }
+                        }
                     }
                 }
-
-                $response["actions"][] = "Updated $update_count existing records with user_id";
-
-                $null_check = $con->query("SELECT COUNT(*) as count FROM user_photos WHERE user_id IS NULL");
-                $null_count = $null_check->fetch_assoc()['count'];
-                if ($null_count == 0) {
-                    $make_not_null = "ALTER TABLE user_photos MODIFY COLUMN user_id INT NOT NULL";
-                    if ($con->query($make_not_null)) {
-                        $response["actions"][] = "user_id column changed to NOT NULL";
-                    } else {
-                        $response["errors"][] = "Failed to enforce NOT NULL: " . $con->error;
-                    }
+                
+                // Generate unique filename
+                $file_extension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+                $filename = 'photo_' . time() . '_' . uniqid() . '.' . $file_extension;
+                $file_path = $upload_dir . $filename;
+                
+                // Move the uploaded file
+                if (move_uploaded_file($_FILES['image']['tmp_name'], $file_path)) {
+                    $response["debug"][] = "File uploaded successfully to $file_path";
+                    // Store path relative to web root for database
+                    $db_image_path = 'uploads/photos/' . $filename;
                 } else {
-                    $response["actions"][] = "$null_count records still have NULL user_id";
+                    $error = error_get_last();
+                    $response["debug"][] = "Error: " . ($error ? json_encode($error) : "Unknown error");
+                    throw new Exception("Failed to move uploaded file. Error: " . ($error ? $error['message'] : "Unknown"));
                 }
             } else {
-                $response["errors"][] = "No users found to map for user_id update";
+                throw new Exception("File upload error: " . $_FILES['image']['error']);
             }
-        } else {
-            $response["errors"][] = "Error adding user_id column: " . $con->error;
+        } 
+        // Handle JSON request
+        else {
+            $input = file_get_contents('php://input');
+            $response["debug"][] = "Raw input: $input";
+            
+            $data = json_decode($input, true);
+            $response["debug"][] = "Parsed input: " . json_encode($data);
+            
+            if (!$data) {
+                throw new Exception("Invalid input data. Required fields: username, caption, user_id");
+            }
+            
+            // Extract data from JSON
+            $username = isset($data['username']) ? $con->real_escape_string($data['username']) : '';
+            $user_id = isset($data['user_id']) ? intval($data['user_id']) : 0;
+            $caption = isset($data['caption']) ? $con->real_escape_string($data['caption']) : '';
+            $rating = isset($data['rating']) ? floatval($data['rating']) : 5.0;
+            
+            // For backward compatibility, if image_name is provided
+            if (isset($data['image_name'])) {
+                $db_image_path = $con->real_escape_string($data['image_name']);
+            } else {
+                $db_image_path = 'default_image.jpg';
+            }
         }
-    } else {
-        $response["actions"][] = "user_id column already exists";
-    }
-
-    // === PHASE 3: Add foreign key constraint (optional) ===
-    $add_fk = "ALTER TABLE user_photos 
-               ADD CONSTRAINT fk_user_photos_users
-               FOREIGN KEY (user_id) REFERENCES users(user_id)
-               ON DELETE CASCADE ON UPDATE CASCADE";
-    if ($con->query($add_fk)) {
-        $response["actions"][] = "Foreign key constraint added to user_photos";
-    } else {
-        $response["errors"][] = "Foreign key might already exist or failed: " . $con->error;
-    }
-
-    // === PHASE 4: Handle upload request ===
-    $input = file_get_contents('php://input');
-    $response["debug"][] = "Raw input: $input";
-
-    $data = json_decode($input, true);
-    $response["debug"][] = "Parsed input: " . json_encode($data);
-
-    if ($data && isset($data['caption']) && isset($data['user_id'])) {
-        $username = isset($data['username']) && !empty($data['username']) ? 
-            $con->real_escape_string($data['username']) : 'User';
-        $user_id = intval($data['user_id']);
-        $caption = $con->real_escape_string($data['caption']);
-        $rating = isset($data['rating']) ? floatval($data['rating']) : 5.0;
-        $image_path = isset($data['image_name']) ? $con->real_escape_string($data['image_name']) : 'default_image.jpg';
+        
+        $response["debug"][] = "Data validated";
+        
+        // Insert photo data into the database
         $date_time = date('Y-m-d H:i:s');
-
-        $insert_query = "INSERT INTO user_photos (user_id, username, caption, rating, image_path, date_time)
-                         VALUES ($user_id, '$username', '$caption', $rating, '$image_path', '$date_time')";
-
+        $insert_query = "INSERT INTO user_photos (user_id, username, caption, rating, image_path, date_time) 
+                        VALUES ($user_id, '$username', '$caption', $rating, '$db_image_path', '$date_time')";
+        
         if ($con->query($insert_query)) {
+            $response["debug"][] = "Photo record created successfully";
             $response["success"] = true;
             $response["message"] = "Photo shared successfully";
             $response["data"] = [
@@ -131,30 +145,27 @@ try {
                 "username" => $username,
                 "caption" => $caption,
                 "rating" => $rating,
-                "image_path" => $image_path,
+                "image_path" => $db_image_path,
                 "date_time" => $date_time
             ];
         } else {
-            $response["message"] = "Failed to insert photo: " . $con->error;
-            $response["debug"][] = "Query error: " . $con->error;
+            throw new Exception("Database error: " . $con->error);
         }
     } else {
-        $response["message"] = "Missing required fields: caption and user_id";
-        $response["debug"][] = "Input validation failed";
+        throw new Exception("Invalid request method. Use POST to share photos.");
     }
-
 } catch (Exception $e) {
     $response["success"] = false;
-    $response["message"] = "Exception occurred: " . $e->getMessage();
-    $response["errors"][] = $e->getMessage();
+    $response["message"] = $e->getMessage();
+    $response["debug"][] = "Exception: " . $e->getMessage();
 }
 
-// Handle unexpected output
+// Capture any unexpected output
 $output = ob_get_clean();
 if (!empty($output)) {
     $response["debug"][] = "Unexpected output: " . $output;
 }
 
-// Send final JSON response
-echo json_encode($response, JSON_PRETTY_PRINT);
+// Send the JSON response
+echo json_encode($response);
 ?>

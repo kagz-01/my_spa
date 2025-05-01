@@ -78,7 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
   // Logout user
   Future<void> _logout() async {
     await _profileController.clearUserData();
-    Get.offAllNamed('/login');
+    Get.offAllNamed('/');
   }
 
   @override
@@ -131,7 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                           ? NetworkImage(profileImage)
                                           : profileImage.startsWith('uploads/')
                                               ? NetworkImage(
-                                                  'http://${ApiService.serverIP}/$profileImage')
+                                                  '${ApiService.imageBaseUrl}/$profileImage')
                                               : const AssetImage(
                                                       "assets/images/user/Logo.png")
                                                   as ImageProvider,

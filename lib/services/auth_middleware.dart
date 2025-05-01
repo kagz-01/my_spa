@@ -7,7 +7,6 @@ class AuthMiddleware extends GetMiddleware {
 
   @override
   RouteSettings? redirect(String? route) {
-    // If user is not logged in, redirect to login page
     if (!_userService.isLoggedIn()) {
       return const RouteSettings(name: '/login');
     }
